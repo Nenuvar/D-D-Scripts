@@ -55,7 +55,7 @@ def filter_monsters_by_cr(monsters, max_cr):
 
 def main():
     # Load the monster data from the JSON file
-    data = load_monsters('src/data/bestiary-mm.json')  # Adjust the path to your JSON file
+    data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')  # Adjust the path to your JSON file
     monsters = data["monster"]  # Access the list of monsters under the "monster" key
 
     # Ask the user about the difficulty of the encounter
