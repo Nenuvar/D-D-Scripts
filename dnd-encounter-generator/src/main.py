@@ -69,10 +69,14 @@ def filter_monsters_by_xp(monsters, max_xp):
     """
     filtered = []
     for monster in monsters:
-        cr = monster.get("cr", "0")
+        cr = monster.get("cr", "0")  # Default to "0" if "cr" is missing
+        
+        # Handle cases where CR is a dictionary
         if isinstance(cr, dict):
-            cr = cr.get("cr", "0")
-        xp = CR_TO_XP.get(cr, 0)  # Get XP value for the monster's CR
+            cr = cr.get("cr", "0")  # Extract the "cr" key from the dictionary
+        
+        # Get XP value for the monster's CR
+        xp = CR_TO_XP.get(cr, 0)
         if xp <= max_xp:
             filtered.append(monster)
     return filtered
@@ -114,7 +118,7 @@ def main():
     for monster in filtered_monsters:
         name = monster.get("name", "Unknown")
         cr = monster.get("cr", "Unknown")
-        xp = CR_TO_XP.get(cr, 0)
+        xp = CR_TO_XP.get(str(cr), 0)  # Ensure CR is a string before lookup
         print(f"- {name} (CR: {cr}, XP: {xp})")
 
 if __name__ == "__main__":
