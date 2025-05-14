@@ -3,7 +3,7 @@ from encounter_generator import load_monsters  # Import the function to load mon
 
 def filter_monsters_by_cr(monsters, max_cr):
     """
-    Filters the list of monsters based on the maximum Challenge Rating (CR).
+    Filters the list of monsters based on the maximum Challenge Rating (CR)
     :param monsters: List of monster dictionaries.
     :param max_cr: Maximum CR for the encounter.
     :return: Filtered list of monsters.
