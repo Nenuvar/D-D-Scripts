@@ -3,7 +3,7 @@ from encounter_generator import load_monsters  # Import the function to load mon
 
 def main():
     # Load the monster data from the JSON file
-    data = load_monsters('src/data/bestiary-mm.json')  # Adjust the path to your JSON file
+    data = load_monsters('\\svgkomm.svgdrift.no\Users\sk5049835\Documents\Notater\Scripts\learn_python\dnd-encounter-generator\src/data/bestiary-mm.json')  # Adjust the path to your JSON file
     monsters = data["monster"]  # Access the list of monsters under the "monster" key
 
     # Print the loaded monsters to the console
