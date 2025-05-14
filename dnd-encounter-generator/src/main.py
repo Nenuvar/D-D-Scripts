@@ -11,7 +11,7 @@ def filter_monsters_by_cr(monsters, max_cr):
     filtered = []
     for monster in monsters:
         # Extract the CR value
-        cr = monster.get("cr", "0")
+        cr = monster.get("cr", "0")  # Default to "0" if "cr" is missing
         
         # Handle cases where CR is a dictionary
         if isinstance(cr, dict):
@@ -38,7 +38,7 @@ def filter_monsters_by_cr(monsters, max_cr):
     filtered = []
     for monster in monsters:
         # Extract the CR value
-        cr = monster.get("cr", "0")
+        cr = monster.get("cr", "0")  # Default to "0" if "cr" is missing
         
         # Handle cases where CR is a dictionary
         if isinstance(cr, dict):
