@@ -10,13 +10,19 @@ def filter_monsters_by_cr(monsters, max_cr):
     """
     filtered = []
     for monster in monsters:
+        # Extract the CR value
+        cr = monster.get("cr", "0")
+        
+        # Handle cases where CR is a dictionary
+        if isinstance(cr, dict):
+            cr = cr.get("cr", "0")  # Extract the "cr" key from the dictionary
+        
         # Convert CR to a float for comparison (e.g., "1/4" -> 0.25)
         try:
-            cr = monster.get("cr", "0")
             cr_value = float(eval(cr)) if "/" in cr else float(cr)
             if cr_value <= max_cr:
                 filtered.append(monster)
-        except ValueError:
+        except (ValueError, TypeError):
             continue  # Skip monsters with invalid CR values
     return filtered
 
