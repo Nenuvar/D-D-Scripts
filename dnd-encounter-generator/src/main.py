@@ -101,14 +101,14 @@ def generate_encounter(monsters, max_xp):
             all_environments.update(environments)
 
     # Display the environments to the user
-    print("\nSelect the environment for the encounter:")
+    print("\n⚔️  Choose your battleground")
     environment_map = {str(i + 1): env for i, env in enumerate(sorted(all_environments))}
     for key, env in environment_map.items():
         print(f"{key}. {env.capitalize()}")
-    print(f"{len(environment_map) + 1}. Any")
+    print(f"{len(environment_map) + 1}. 🎲 Surprise me (Any)")
 
     # Get the user's choice
-    environment_choice = input(f"Choose an environment (1-{len(environment_map) + 1}): ").strip()
+    environment_choice = input(f"Your choice (1-{len(environment_map) + 1}): ").strip()
     selected_environment = environment_map.get(environment_choice, "any")
 
     # Filter monsters based on the selected environment
@@ -119,7 +119,7 @@ def generate_encounter(monsters, max_xp):
         ]
 
     if not monsters:
-        print("No monsters found for the selected environment.")
+        print("😢 No monsters found for the chosen environment. The adventurers are safe... for now.")
         return []  # Return an empty encounter if no monsters match the environment
 
     # Step 2: Choose a main monster within 50%-90% of the max XP pool
@@ -131,7 +131,7 @@ def generate_encounter(monsters, max_xp):
     ]
 
     if not main_candidates:
-        print("No suitable main monster found within the desired XP range.")
+        print("🛑 No worthy main monster found within the XP range. The adventurers might get bored!")
         return []  # Return an empty encounter if no main monster is found
 
     # Select the first suitable main monster
@@ -140,17 +140,20 @@ def generate_encounter(monsters, max_xp):
     main_monster_xp = CR_TO_XP.get(str(main_monster.get("cr", "0")), 0)
     remaining_xp = max_xp - main_monster_xp
 
-    # Step 3: Ask if the user wants minions
-    print(f"\nMain monster selected: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
+    # Step 3: Announce the main monster
+    print(f"\n 🐲  Your main monster is: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
     if remaining_xp <= 0:
-        print("No XP left for minions.")
+        print("⚔️ The main monster is so powerful that there's no room for minions!")
         return encounter
 
-    add_minions = input("Do you want to add minions? (y/n): ").strip().lower()
+    # Step 4: Ask if the user wants minions
+    add_minions = input("🐭  Would you like to add some minions? (y/n): ").strip().lower()
     if add_minions != 'y':
+        print("🛡️ No minions? A bold choice!")
         return encounter
 
-    # Step 4: Add minions to fill the remaining XP
+    # Step 5: Add minions to fill the remaining XP
+    print("\n🪄  Summoning minions to join the fray...")
     minions = []
     for monster in monsters:
         if monster == main_monster:
@@ -167,6 +170,11 @@ def generate_encounter(monsters, max_xp):
         if len(minions) >= 3 or remaining_xp <= 0:  # Limit to 1-3 minions
             break
 
+    if minions:
+        print(f" {len(minions)} minions have joined the encounter!")
+    else:
+        print("🤷 No suitable minions could be found. The main monster stands alone!")
+
     encounter.extend(minions)
     return encounter
 
@@ -177,22 +185,22 @@ def main():
 
     # Ask the user for the party's level and size
     try:
-        party_level = int(input("Enter the party's level: "))
-        party_size = int(input("Enter the party's size: "))
+        party_level = int(input("🎲 The party's level (1-20): "))
+        party_size = int(input("🧙 Number of adventurers: "))
     except ValueError:
-        print("Invalid input. Defaulting to level 1 and size 4.")
-        party_level = 1
-        party_size = 4
+        print("⚠️ Invalid input detected! Defaulting to level 3 and 3 adventurers.")
+        party_level = 3
+        party_size = 3
 
     # Calculate the party's XP thresholds
     thresholds = calculate_party_thresholds(party_level, party_size)
 
     # Ask the user about the difficulty of the encounter
-    print("How hard will the encounter be?")
-    print("1. Easy")
-    print("2. Medium")
-    print("3. Hard")
-    print("4. Deadly")
+    print("\n🔥 How challenging will this encounter be?")
+    print("1. 🟢 Easy - Just a taste of danger")
+    print("2. 🟡 Medium - A fair fight")
+    print("3. 🔴 Hard - A true test of their mettle")
+    print("4. ⚫ Deadly - A fight for survival")
     difficulty = input("Choose a difficulty (1-4): ")
 
     # Get the XP threshold for the chosen difficulty
@@ -207,11 +215,14 @@ def main():
 
     # Display the encounter
     print("\nGenerated Encounter:")
-    for monster in encounter:
+    for i, monster in enumerate(encounter):
         name = monster.get("name", "Unknown")
         cr = monster.get("cr", "Unknown")
         xp = CR_TO_XP.get(str(cr), 0)
-        print(f"- {name} (CR: {cr}, XP: {xp})")
+        if i == 0:  # The first monster is the main monster
+            print(f"- 🐲 {name} (CR: {cr}, XP: {xp})")
+        else:  # The rest are minions
+            print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
 
 if __name__ == "__main__":
     main()  # Run the main function when the script is executed
