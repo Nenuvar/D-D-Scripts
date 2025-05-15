@@ -1,6 +1,9 @@
 # filepath: src/main.py
+import os
 import random
+from datetime import datetime
 from encounter_generator import load_monsters  # Import the function to load monsters
+import json
 
 # XP thresholds per character level (DMG pg. 82)
 XP_THRESHOLDS = {
@@ -178,6 +181,50 @@ def generate_encounter(monsters, max_xp):
     encounter.extend(minions)
     return encounter
 
+def save_encounter_to_md(encounter, folder_path):
+    """
+    Save the generated encounter to a Markdown file.
+    :param encounter: List of monsters in the encounter.
+    :param folder_path: Path to the folder where the file should be saved.
+    """
+    # Ensure the folder exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Generate a random title for the encounter
+    titles = [
+        "The Lair of Shadows",
+        "Ambush in the Misty Woods",
+        "The Forgotten Crypt",
+        "Battle at the Broken Bridge",
+        "The Siege of Emberfall",
+        "Chaos in the Crystal Cavern",
+        "The Howling Plains Encounter",
+        "The Curse of the Blood Moon",
+        "The Wrath of the Ancient One",
+        "The Final Stand at Dawn"
+    ]
+    encounter_title = random.choice(titles)
+
+    # Use the title as the filename, replacing spaces with underscores
+    file_name = f"{encounter_title.replace(' ', '_')}.md"
+    file_path = os.path.join(folder_path, file_name)
+
+    # Write the encounter to the Markdown file
+    with open(file_path, "w") as file:
+        file.write("### Monsters:\n")
+        # Write the table header
+        file.write("| Monster | CR | HP | Dead | Note |\n")
+        file.write("|---------|----|----|------|------|\n")
+        for monster in encounter:
+            name = monster.get("name", "Unknown")
+            cr = monster.get("cr", "Unknown")
+            hp = monster.get("hp", {}).get("average", "Unknown")  # Extract the average HP if available
+            obsidian_link = f"[[{name.lower().replace(' ', '-')}\\|{name}]]"
+            file.write(f"| **{obsidian_link}** | {cr} | {hp} | [ ] |  |\n")
+        file.write("\n---\n")
+
+    print(f"\nEncounter saved to: {file_path}")
+
 def main():
     # Load the monster data from the JSON file
     data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')  # Adjust the path to your JSON file
@@ -223,6 +270,10 @@ def main():
             print(f"- 🐲 {name} (CR: {cr}, XP: {xp})")
         else:  # The rest are minions
             print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
+    
+    # Ask the user for a folder to save the encounter
+    folder_path = input("\nEnter the folder path to save the encounter (e.g., './encounters'): ")
+    save_encounter_to_md(encounter, folder_path)
 
 if __name__ == "__main__":
     main()  # Run the main function when the script is executed
