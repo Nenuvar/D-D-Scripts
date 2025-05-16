@@ -225,6 +225,64 @@ def save_encounter_to_md(encounter, folder_path):
 
     print(f"\nEncounter saved to: {file_path}")
 
+def get_save_folder_path():
+    """
+    Handles config file logic for saving folder paths.
+    Returns the chosen folder path.
+    """
+    config_dir = os.path.join(os.path.dirname(__file__), "config")
+    os.makedirs(config_dir, exist_ok=True)
+    config_file = os.path.join(config_dir, "config.json")
+
+    # Load config or initialize
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+
+    folder_paths = config.get("folder_paths", [])
+    chosen_path = None
+
+    if folder_paths:
+        default_path = folder_paths[-1]
+        print(f"\nDefault folder path: {default_path}")
+        use_default = input("Use the default folder path? (y/n): ").strip().lower()
+        if use_default == "y":
+            chosen_path = default_path
+        else:
+            print("\nChoose an existing folder path or add a new one:")
+            for idx, path in enumerate(folder_paths, 1):
+                print(f"{idx}. {path}")
+            print(f"{len(folder_paths)+1}. Add a new folder path")
+            choice = input(f"Select an option (1-{len(folder_paths)+1}): ").strip()
+            if choice.isdigit():
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(folder_paths):
+                    chosen_path = folder_paths.pop(choice_num-1)
+                    folder_paths.append(chosen_path)  # Make it default
+                elif choice_num == len(folder_paths)+1:
+                    chosen_path = input("Enter the new folder path (e.g., './encounters'): ").strip()
+                    if chosen_path:
+                        if chosen_path in folder_paths:
+                            folder_paths.remove(chosen_path)
+                        folder_paths.append(chosen_path)
+            if not chosen_path:
+                print("No valid selection made. Using default path.")
+                chosen_path = default_path
+    else:
+        print("\nNo folder path or config found.")
+        while not chosen_path:
+            chosen_path = input("Enter the folder path (e.g., './encounters'): ").strip()
+        folder_paths.append(chosen_path)
+
+    # Save updated config
+    config["folder_paths"] = folder_paths
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=2)
+
+    return chosen_path
+    
 def main():
     # Load the monster data from the JSON file
     data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')  # Adjust the path to your JSON file
@@ -271,8 +329,9 @@ def main():
         else:  # The rest are minions
             print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
     
-    # Ask the user for a folder to save the encounter
-    folder_path = input("\nEnter the folder path to save the encounter (e.g., './encounters'): ")
+    # Determines the folder path to save the encounter
+    print("\n💾 Saving the encounter...")
+    folder_path = get_save_folder_path()
     save_encounter_to_md(encounter, folder_path)
 
 if __name__ == "__main__":
