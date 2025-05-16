@@ -85,6 +85,45 @@ def filter_monsters_by_xp(monsters, max_xp):
             filtered.append(monster)
     return filtered
 
+def get_party_info(config_file):
+    """
+    Loads party info from config or prompts the user and saves it.
+    Returns (party_level, party_size).
+    """
+    # Load config if exists
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+
+    party_info = config.get("party_info", {})
+    party_level = party_info.get("level")
+    party_size = party_info.get("size")
+
+    print("\nParty info:")
+    if party_level and party_size:
+        print(f"Current: Level {party_level}, {party_size} adventurers")
+        use_current = input("Use this party info? (y/n): ").strip().lower()
+        if use_current == "y":
+            return party_level, party_size
+
+    # Prompt for new info
+    while True:
+        try:
+            party_level = int(input("🎲 The party's level (1-20): "))
+            party_size = int(input("🧙 Number of adventurers: "))
+            break
+        except ValueError:
+            print("⚠️ Invalid input. Please enter numbers.")
+
+    # Save to config
+    config["party_info"] = {"level": party_level, "size": party_size}
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=2)
+
+    return party_level, party_size
+
 def generate_encounter(monsters, max_xp):
     """
     Generate an encounter by selecting a main monster that fits between 70%-80% of the max XP pool
@@ -282,20 +321,19 @@ def get_save_folder_path():
         json.dump(config, f, indent=2)
 
     return chosen_path
-    
-def main():
-    # Load the monster data from the JSON file
-    data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')  # Adjust the path to your JSON file
-    monsters = data["monster"]  # Access the list of monsters under the "monster" key
 
-    # Ask the user for the party's level and size
-    try:
-        party_level = int(input("🎲 The party's level (1-20): "))
-        party_size = int(input("🧙 Number of adventurers: "))
-    except ValueError:
-        print("⚠️ Invalid input detected! Defaulting to level 3 and 3 adventurers.")
-        party_level = 3
-        party_size = 3
+def main():
+    # Config file path (reuse from get_save_folder_path)
+    config_dir = os.path.join(os.path.dirname(__file__), "config")
+    os.makedirs(config_dir, exist_ok=True)
+    config_file = os.path.join(config_dir, "config.json")
+
+    # Get party info (load or prompt)
+    party_level, party_size = get_party_info(config_file)
+
+    # Load the monster data from the JSON file
+    data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')
+    monsters = data["monster"]
 
     # Calculate the party's XP thresholds
     thresholds = calculate_party_thresholds(party_level, party_size)
