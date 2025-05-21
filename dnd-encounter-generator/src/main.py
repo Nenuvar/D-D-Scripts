@@ -4,6 +4,7 @@ import random
 from datetime import datetime
 from encounter_generator import load_monsters  # Import the function to load monsters
 import json
+import sys
 
 # XP thresholds per character level (DMG pg. 82)
 XP_THRESHOLDS = {
@@ -85,12 +86,40 @@ def filter_monsters_by_xp(monsters, max_xp):
             filtered.append(monster)
     return filtered
 
-def get_party_info(config_file):
+def get_monster_source(config_file, edit_mode=False):
+    """
+    Loads monster source from config or prompts the user and saves it.
+    Returns the chosen monster source file path.
+    """
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+
+    default_source = config.get("monster_source", "bestiary-mm.json")
+    if not edit_mode and "monster_source" in config:
+        print(f"\nMonster source: {default_source}")
+        return default_source
+
+    # In edit mode, always prompt for new source
+    print(f"\nCurrent monster source: {default_source}")
+    chosen_source = input("Enter the monster source file (e.g., 'bestiary-mm.json'): ").strip()
+    if not chosen_source:
+        print("No input given. Using default.")
+        chosen_source = default_source
+
+    config["monster_source"] = chosen_source
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=2)
+
+    return chosen_source
+
+def get_party_info(config_file, edit_mode=False):
     """
     Loads party info from config or prompts the user and saves it.
     Returns (party_level, party_size).
     """
-    # Load config if exists
     try:
         with open(config_file, "r") as f:
             config = json.load(f)
@@ -101,14 +130,14 @@ def get_party_info(config_file):
     party_level = party_info.get("level")
     party_size = party_info.get("size")
 
-    print("\nParty info:")
-    if party_level and party_size:
-        print(f"Current: Level {party_level}, {party_size} adventurers")
-        use_current = input("Use this party info? (y/n): ").strip().lower()
-        if use_current == "y":
-            return party_level, party_size
+    if not edit_mode and party_level and party_size:
+        print("\nParty info:")
+        print(f"  Number of adventurers: {party_size}")
+        print(f"  Level: {party_level}")
+        return party_level, party_size
 
-    # Prompt for new info
+    # In edit mode, always prompt for new info
+    print("\nEnter new party info:")
     while True:
         try:
             party_level = int(input("🎲 The party's level (1-20): "))
@@ -117,7 +146,6 @@ def get_party_info(config_file):
         except ValueError:
             print("⚠️ Invalid input. Please enter numbers.")
 
-    # Save to config
     config["party_info"] = {"level": party_level, "size": party_size}
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
@@ -189,7 +217,9 @@ def generate_encounter(monsters, max_xp):
         return encounter
 
     # Step 4: Ask if the user wants minions
-    add_minions = input("🐭  Would you like to add some minions? (y/n): ").strip().lower()
+    add_minions = input("🐭  Would you like to add some minions? (y/n): ")
+
+
     if add_minions != 'y':
         print("🛡️ No minions? A bold choice!")
         return encounter
@@ -264,10 +294,11 @@ def save_encounter_to_md(encounter, folder_path):
 
     print(f"\nEncounter saved to: {file_path}")
 
-def get_save_folder_path():
+def get_save_folder_path(edit_mode=False):
     """
     Handles config file logic for saving folder paths.
     Returns the chosen folder path.
+    If edit_mode is True, prompts user to enter a new path directly.
     """
     config_dir = os.path.join(os.path.dirname(__file__), "config")
     os.makedirs(config_dir, exist_ok=True)
@@ -283,34 +314,28 @@ def get_save_folder_path():
     folder_paths = config.get("folder_paths", [])
     chosen_path = None
 
-    if folder_paths:
-        default_path = folder_paths[-1]
-        print(f"\nDefault folder path: {default_path}")
-        use_default = input("Use the default folder path? (y/n): ").strip().lower()
-        if use_default == "y":
-            chosen_path = default_path
-        else:
-            print("\nChoose an existing folder path or add a new one:")
-            for idx, path in enumerate(folder_paths, 1):
-                print(f"{idx}. {path}")
-            print(f"{len(folder_paths)+1}. Add a new folder path")
-            choice = input(f"Select an option (1-{len(folder_paths)+1}): ").strip()
-            if choice.isdigit():
-                choice_num = int(choice)
-                if 1 <= choice_num <= len(folder_paths):
-                    chosen_path = folder_paths.pop(choice_num-1)
-                    folder_paths.append(chosen_path)  # Make it default
-                elif choice_num == len(folder_paths)+1:
-                    chosen_path = input("Enter the new folder path (e.g., './encounters'): ").strip()
-                    if chosen_path:
-                        if chosen_path in folder_paths:
-                            folder_paths.remove(chosen_path)
-                        folder_paths.append(chosen_path)
-            if not chosen_path:
-                print("No valid selection made. Using default path.")
-                chosen_path = default_path
+    if edit_mode:
+        # Show current default path
+        current_path = folder_paths[-1] if folder_paths else None
+        print("\nCurrent save folder:")
+        print(f"  {current_path if current_path else '[None set]'}")
+        while True:
+            new_path = input("Enter the new folder path (e.g., './encounters'): ").strip()
+            if new_path:
+                if new_path in folder_paths:
+                    folder_paths.remove(new_path)
+                folder_paths.append(new_path)
+                chosen_path = new_path
+                print(f"New default save folder set: {chosen_path}")
+                break
+            else:
+                print("Please enter a valid, non-empty folder path.")
+    elif folder_paths:
+        # Auto-select the default (last) path
+        chosen_path = folder_paths[-1]
+        print(f"\nUsing default folder path: {chosen_path}")
     else:
-        print("\nNo folder path or config found.")
+        # No folder paths at all, prompt for one
         while not chosen_path:
             chosen_path = input("Enter the folder path (e.g., './encounters'): ").strip()
         folder_paths.append(chosen_path)
@@ -322,23 +347,141 @@ def get_save_folder_path():
 
     return chosen_path
 
+def print_help():
+    print("""
+Encounter Builder Help
+----------------------
+This tool helps you generate and save D&D 5e encounters based on your party and preferences.
+
+Main features:
+- Auto-saves your party info, monster source, and save folder for future sessions.
+- Lets you quickly generate random encounters with difficulty and environment selection.
+- Saves encounters as Markdown files for easy use in your campaign notes.
+
+Usage:
+- Press Enter to start and use your saved setup (or enter new info if none is saved).
+- Type --help to see this help message.
+- Type --folders to manage your save folder paths.
+
+While running, you can:
+- Review your current party, monster source, and save folder.
+- Choose to edit any of these settings before generating an encounter.
+- Add or change the save folder path at any time.
+- Change the party info or monster source at any time.
+
+Editing options (when prompted):
+1. Party info: Set the party's level and number of adventurers.
+2. Monster source: Choose which bestiary file to use. This can be a .json-file you have created yourself or downloaded. 
+3. Save folder: Set where encounters are saved.
+4. Edit all: Update all of the above.
+5. Continue: Use the current settings.
+
+Encounter generation:
+- Choose encounter difficulty (Easy, Medium, Hard, Deadly).
+- Choose environment or let the tool surprise you.
+- A main monster is selected based on the chosen difficulty and environment. 
+- Add minions to the encounter if you want to highten the difficulty (optional).
+- Save the encounter as a Markdown file in your chosen folder. TIP! Set this as a folder path in your Obsidian vault, and the generated encounter will be automatically available. 
+
+Config file location:
+- All settings are saved in this file src/config/config.json
+- If this is the first time you run the program, this file will be created automatically.
+- You can edit this file manually if you want to change settings without running the program.
+- If you want to delete all settings, delete the file and run the program again.
+
+""")
+
 def main():
-    # Config file path (reuse from get_save_folder_path)
     config_dir = os.path.join(os.path.dirname(__file__), "config")
     os.makedirs(config_dir, exist_ok=True)
     config_file = os.path.join(config_dir, "config.json")
 
-    # Get party info (load or prompt)
-    party_level, party_size = get_party_info(config_file)
+    print("Welcome to the Encounter Builder! ⚔️")
+    user_input = input("Press [Enter] to start, or type --help for options: ").strip().lower()
+    if user_input == "--help":
+        print_help()
+        return
+    if user_input == "--folders":
+        get_save_folder_path(edit_mode=True)
+        get_party_info(config_file, edit_mode=True)
+        get_monster_source(config_file, edit_mode=True)
+        return
+    elif user_input and user_input != "":
+        print("Unknown option. Exiting.")
+        return
 
-    # Load the monster data from the JSON file
-    data = load_monsters('//svgkomm.svgdrift.no/Users/sk5049835/Documents/Notater/Scripts/learn_python/dnd-encounter-generator/src/data/bestiary-mm.json')
+    # Try to load config info
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+
+    party_info = config.get("party_info", {})
+    monster_source = config.get("monster_source")
+    folder_paths = config.get("folder_paths", [])
+
+    has_saved_info = party_info and monster_source and folder_paths
+
+    if has_saved_info:
+        print("\n🎲 Loading your adventure setup from the config file...")
+        print ("🧙 Party:")
+        print(f"    Number of adventurers: {party_info.get('size', '?')}")
+        print(f"    Level: {party_info.get('level', '?')}")
+        print(f"📚 Monster source: {monster_source}")
+        print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
+
+        use_saved = input("Do you want to use this info? (y/n): ").strip().lower()
+        if use_saved != "y":
+            while True:
+                print("\nWhich info would you like to edit?")
+                print("1. Party info")
+                print("2. Monster source")
+                print("3. Save folder")
+                print("4. Edit all")
+                print("5. Continue with current info")
+                choice = input("Choose an option (1-5): ").strip()
+                if choice == "1":
+                    party_level, party_size = get_party_info(config_file, edit_mode=True)
+                    party_info = {"level": party_level, "size": party_size}
+                elif choice == "2":
+                    monster_source = get_monster_source(config_file, edit_mode=True)
+                elif choice == "3":
+                    folder_path = get_save_folder_path(edit_mode=True)
+                elif choice == "4":
+                    party_level, party_size = get_party_info(config_file, edit_mode=True)
+                    party_info = {"level": party_level, "size": party_size}
+                    monster_source = get_monster_source(config_file, edit_mode=True)
+                    folder_path = get_save_folder_path(edit_mode=True)
+                elif choice == "5":
+                    break
+                else:
+                    print("Invalid option. Please try again.")
+                    continue
+                # After editing, ask if user wants to edit more
+                more = input("Edit more info? (y/n): ").strip().lower()
+                if more != "y":
+                    break
+            party_level = party_info.get("level")
+            party_size = party_info.get("size")
+            if 'folder_path' not in locals():
+                folder_path = folder_paths[-1]
+        else:
+            party_level = party_info.get("level")
+            party_size = party_info.get("size")
+            folder_path = folder_paths[-1]
+    else:
+        # No saved info, prompt for everything
+        party_level, party_size = get_party_info(config_file)
+        monster_source = get_monster_source(config_file)
+        folder_path = get_save_folder_path()
+
+    monster_source_path = os.path.join(os.path.dirname(__file__), "data", monster_source)
+    data = load_monsters(monster_source_path)
     monsters = data["monster"]
 
-    # Calculate the party's XP thresholds
     thresholds = calculate_party_thresholds(party_level, party_size)
 
-    # Ask the user about the difficulty of the encounter
     print("\n🔥 How challenging will this encounter be?")
     print("1. 🟢 Easy - Just a taste of danger")
     print("2. 🟡 Medium - A fair fight")
@@ -346,31 +489,24 @@ def main():
     print("4. ⚫ Deadly - A fight for survival")
     difficulty = input("Choose a difficulty (1-4): ")
 
-    # Get the XP threshold for the chosen difficulty
     difficulty_to_key = {"1": "easy", "2": "medium", "3": "hard", "4": "deadly"}
     max_xp = thresholds.get(difficulty_to_key.get(difficulty, "easy"), thresholds["easy"])
 
-    # Filter monsters based on the XP threshold
     filtered_monsters = filter_monsters_by_xp(monsters, max_xp)
-
-    # Generate a single encounter
     encounter = generate_encounter(filtered_monsters, max_xp)
 
-    # Display the encounter
     print("\nGenerated Encounter:")
     for i, monster in enumerate(encounter):
         name = monster.get("name", "Unknown")
         cr = monster.get("cr", "Unknown")
         xp = CR_TO_XP.get(str(cr), 0)
-        if i == 0:  # The first monster is the main monster
+        if i == 0:
             print(f"- 🐲 {name} (CR: {cr}, XP: {xp})")
-        else:  # The rest are minions
+        else:
             print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
     
-    # Determines the folder path to save the encounter
     print("\n💾 Saving the encounter...")
-    folder_path = get_save_folder_path()
     save_encounter_to_md(encounter, folder_path)
 
 if __name__ == "__main__":
-    main()  # Run the main function when the script is executed
+    main()
