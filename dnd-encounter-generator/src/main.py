@@ -104,7 +104,7 @@ def get_monster_source(config_file, edit_mode=False):
 
     # In edit mode, always prompt for new source
     print(f"\nCurrent monster source: {default_source}")
-    chosen_source = input("Enter the monster source file (e.g., 'bestiary-mm.json'): ").strip()
+    chosen_source = input("Enter a new monster source file (e.g., 'bestiary-mm.json'): ").strip()
     if not chosen_source:
         print("No input given. Using default.")
         chosen_source = default_source
@@ -152,33 +152,90 @@ def get_party_info(config_file, edit_mode=False):
 
     return party_level, party_size
 
-def generate_encounter(monsters, max_xp):
+def interactive_input(prompt, config_file=None):
+    """
+    Enhanced input function that allows the user to enter flags (-p, -m, -f, -e, --help)
+    at any prompt to edit config or get help, then returns to the original prompt or signals a section restart.
+    Returns:
+        - user input string if normal input
+        - '_RESTART_SECTION_' if a config edit or help was performed
+    """
+    while True:
+        user_input = input(prompt)
+        if user_input.strip() in ("-p", "--party") and config_file:
+            get_party_info(config_file, edit_mode=True)
+            return "_RESTART_SECTION_"
+        elif user_input.strip() in ("-m", "--monster") and config_file:
+            get_monster_source(config_file, edit_mode=True)
+            return "_RESTART_SECTION_"
+        elif user_input.strip() in ("-f", "--folder") and config_file:
+            get_save_folder_path(edit_mode=True)
+            return "_RESTART_SECTION_"
+        elif user_input.strip() in ("-e", "--edit") and config_file:
+            while True:
+                print("\nEdit Menu:")
+                print("1. Party info")
+                print("2. Monster source")
+                print("3. Save folder")
+                print("4. Edit all")
+                print("5. Continue")
+                choice = input("Choose an option (1-5): ").strip()
+                if choice == "1":
+                    get_party_info(config_file, edit_mode=True)
+                elif choice == "2":
+                    get_monster_source(config_file, edit_mode=True)
+                elif choice == "3":
+                    get_save_folder_path(edit_mode=True)
+                elif choice == "4":
+                    get_party_info(config_file, edit_mode=True)
+                    get_monster_source(config_file, edit_mode=True)
+                    get_save_folder_path(edit_mode=True)
+                elif choice == "5":
+                    break
+                else:
+                    print("Invalid option. Please try again.")
+            return "_RESTART_SECTION_"
+        elif user_input.strip() == "--help":
+            print_help()
+            return "_RESTART_SECTION_"
+        elif user_input.strip() == "":
+            # If the user just presses Enter (empty input), check if prompt is the initial prompt
+            # If so, and --help was just shown, restart the section
+            # This is handled by returning "_RESTART_SECTION_" after --help above
+            return user_input
+        else:
+            return user_input
+
+def generate_encounter(monsters, max_xp, config_file=None):
     """
     Generate an encounter by selecting a main monster that fits between 70%-80% of the max XP pool
     and optionally adding minions with the remaining XP.
     :param monsters: List of filtered monsters.
     :param max_xp: Maximum XP for the encounter.
+    :param config_file: Path to config file for interactive_input.
     :return: List of monsters in the encounter.
     """
     # Shuffle the monsters list to ensure randomness
     random.shuffle(monsters)
 
     # Step 1: Determine all possible environments from the monsters list
-    all_environments = set()
-    for monster in monsters:
-        environments = monster.get("environment", [])
-        if isinstance(environments, list):
-            all_environments.update(environments)
-
-    # Display the environments to the user
-    print("\n⚔️  Choose your battleground")
-    environment_map = {str(i + 1): env for i, env in enumerate(sorted(all_environments))}
-    for key, env in environment_map.items():
-        print(f"{key}. {env.capitalize()}")
-    print(f"{len(environment_map) + 1}. 🎲 Surprise me (Any)")
-
-    # Get the user's choice
-    environment_choice = input(f"Your choice (1-{len(environment_map) + 1}): ").strip()
+    while True:
+        all_environments = set()
+        for monster in monsters:
+            environments = monster.get("environment", [])
+            if isinstance(environments, list):
+                all_environments.update(environments)
+        print("\n⚔️  Choose your battleground")
+        environment_map = {str(i + 1): env for i, env in enumerate(sorted(all_environments))}
+        for key, env in environment_map.items():
+            print(f"{key}. {env.capitalize()}")
+        print(f"{len(environment_map) + 1}. 🎲 Surprise me (Any)")
+        environment_choice = interactive_input(f"Your choice (1-{len(environment_map) + 1}): ", config_file).strip()
+        if environment_choice == "_RESTART_SECTION_":
+            continue
+        if environment_choice in environment_map or environment_choice == str(len(environment_map) + 1):
+            break
+        print("Invalid choice. Please try again.")
     selected_environment = environment_map.get(environment_choice, "any")
 
     # Filter monsters based on the selected environment
@@ -217,8 +274,15 @@ def generate_encounter(monsters, max_xp):
         return encounter
 
     # Step 4: Ask if the user wants minions
-    add_minions = input("🐭  Would you like to add some minions? (y/n): ")
-
+    while True:
+        add_minions = interactive_input("🐭  Would you like to add some minions? (y/n): ", config_file).strip().lower()
+        if add_minions == "_RESTART_SECTION_":
+            # Reprint the main monster and minion prompt
+            print(f"\n 🐲  Your main monster is: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
+            continue
+        if add_minions in ("y", "n"):
+            break
+        print("Please enter 'y' or 'n'.")
 
     if add_minions != 'y':
         print("🛡️ No minions? A bold choice!")
@@ -349,45 +413,30 @@ def get_save_folder_path(edit_mode=False):
 
 def print_help():
     print("""
-Encounter Builder Help
-----------------------
-This tool helps you generate and save D&D 5e encounters based on your party and preferences.
+D&D 5e Encounter Builder - Quick Help
+-------------------------------------
+Generate and save random D&D 5e encounters based on your party and preferences.
 
-Main features:
-- Auto-saves your party info, monster source, and save folder for future sessions.
-- Lets you quickly generate random encounters with difficulty and environment selection.
-- Saves encounters as Markdown files for easy use in your campaign notes.
+How to Use:
+- Press [Enter] to start with your saved setup, or enter new info if none is saved.
+- At any prompt, type a flag to edit settings or get help:
+    --help      Show this help message
+    -p, --party    Edit party info (level, size)
+    -m, --monster  Edit monster source file
+    -f, --folder   Edit save folder path
+    -e, --edit     Open the full edit menu
 
-Usage:
-- Press Enter to start and use your saved setup (or enter new info if none is saved).
-- Type --help to see this help message.
-- Type --folders to manage your save folder paths.
+Workflow:
+1. Review or edit your party, monster source, and save folder.
+2. Choose encounter difficulty (Easy, Medium, Hard, Deadly).
+3. Pick an environment or let the tool surprise you.
+4. A main monster is selected; add minions if you wish.
+5. Encounter is saved as a Markdown file in your chosen folder.
 
-While running, you can:
-- Review your current party, monster source, and save folder.
-- Choose to edit any of these settings before generating an encounter.
-- Add or change the save folder path at any time.
-- Change the party info or monster source at any time.
-
-Editing options (when prompted):
-1. Party info: Set the party's level and number of adventurers.
-2. Monster source: Choose which bestiary file to use. This can be a .json-file you have created yourself or downloaded. 
-3. Save folder: Set where encounters are saved.
-4. Edit all: Update all of the above.
-5. Continue: Use the current settings.
-
-Encounter generation:
-- Choose encounter difficulty (Easy, Medium, Hard, Deadly).
-- Choose environment or let the tool surprise you.
-- A main monster is selected based on the chosen difficulty and environment. 
-- Add minions to the encounter if you want to highten the difficulty (optional).
-- Save the encounter as a Markdown file in your chosen folder. TIP! Set this as a folder path in your Obsidian vault, and the generated encounter will be automatically available. 
-
-Config file location:
-- All settings are saved in this file src/config/config.json
-- If this is the first time you run the program, this file will be created automatically.
-- You can edit this file manually if you want to change settings without running the program.
-- If you want to delete all settings, delete the file and run the program again.
+Tips:
+- You can use flags at any prompt to change settings on the fly.
+- All settings are saved in src/config/config.json for next time.
+- To reset, delete the config file.
 
 """)
 
@@ -397,18 +446,45 @@ def main():
     config_file = os.path.join(config_dir, "config.json")
 
     print("Welcome to the Encounter Builder! ⚔️")
-    user_input = input("Press [Enter] to start, or type --help for options: ").strip().lower()
-    if user_input == "--help":
-        print_help()
-        return
-    if user_input == "--folders":
-        get_save_folder_path(edit_mode=True)
-        get_party_info(config_file, edit_mode=True)
-        get_monster_source(config_file, edit_mode=True)
-        return
-    elif user_input and user_input != "":
-        print("Unknown option. Exiting.")
-        return
+    while True:
+        user_input = interactive_input("Press [Enter] to start, or type --help for options: ", config_file).strip().lower()
+        if user_input == "--help":
+            print_help()
+            continue  # Prompt again after showing help
+        if user_input in ("-f", "--folder"):
+            get_save_folder_path(edit_mode=True)
+            return
+        if user_input in ("-p", "--party"):
+            get_party_info(config_file, edit_mode=True)
+            return
+        if user_input in ("-m", "--monster"):
+            get_monster_source(config_file, edit_mode=True)
+            return
+        if user_input in ("-e", "--edit"):
+            while True:
+                print("\nEdit Menu:")
+                print("1. Party info")
+                print("2. Monster source")
+                print("3. Save folder")
+                print("4. Edit all")
+                print("5. Continue")
+                choice = input("Choose an option (1-5): ").strip()
+                if choice == "1":
+                    get_party_info(config_file, edit_mode=True)
+                elif choice == "2":
+                    get_monster_source(config_file, edit_mode=True)
+                elif choice == "3":
+                    get_save_folder_path(edit_mode=True)
+                elif choice == "4":
+                    get_party_info(config_file, edit_mode=True)
+                    get_monster_source(config_file, edit_mode=True)
+                    get_save_folder_path(edit_mode=True)
+                elif choice == "5":
+                    break
+                else:
+                    print("Invalid option. Please try again.")
+            return
+        break  # Exit the loop if no special command was entered
 
     # Try to load config info
     try:
@@ -431,7 +507,20 @@ def main():
         print(f"📚 Monster source: {monster_source}")
         print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
 
-        use_saved = input("Do you want to use this info? (y/n): ").strip().lower()
+        while True:
+            use_saved = interactive_input("Do you want to use the info saved from the config file? (y/n): ", config_file).strip().lower()
+            if use_saved == "_RESTART_SECTION_":
+                # Reprint the section header and info
+                print("\n🎲 Loading your adventure setup from the config file...")
+                print ("🧙 Party:")
+                print(f"    Number of adventurers: {party_info.get('size', '?')}")
+                print(f"    Level: {party_info.get('level', '?')}")
+                print(f"📚 Monster source: {monster_source}")
+                print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
+                continue
+            if use_saved in ("y", "n"):
+                break
+            print("Please enter 'y' or 'n'.")
         if use_saved != "y":
             while True:
                 print("\nWhich info would you like to edit?")
@@ -440,7 +529,10 @@ def main():
                 print("3. Save folder")
                 print("4. Edit all")
                 print("5. Continue with current info")
-                choice = input("Choose an option (1-5): ").strip()
+                choice = interactive_input("Choose an option (1-5): ", config_file).strip()
+                if choice == "_RESTART_SECTION_":
+                    # Reprint the edit menu
+                    continue
                 if choice == "1":
                     party_level, party_size = get_party_info(config_file, edit_mode=True)
                     party_info = {"level": party_level, "size": party_size}
@@ -458,8 +550,9 @@ def main():
                 else:
                     print("Invalid option. Please try again.")
                     continue
-                # After editing, ask if user wants to edit more
-                more = input("Edit more info? (y/n): ").strip().lower()
+                more = interactive_input("Edit more info? (y/n): ", config_file).strip().lower()
+                if more == "_RESTART_SECTION_":
+                    continue
                 if more != "y":
                     break
             party_level = party_info.get("level")
@@ -482,18 +575,25 @@ def main():
 
     thresholds = calculate_party_thresholds(party_level, party_size)
 
-    print("\n🔥 How challenging will this encounter be?")
-    print("1. 🟢 Easy - Just a taste of danger")
-    print("2. 🟡 Medium - A fair fight")
-    print("3. 🔴 Hard - A true test of their mettle")
-    print("4. ⚫ Deadly - A fight for survival")
-    difficulty = input("Choose a difficulty (1-4): ")
-
+    # Difficulty selection section with restart support
+    while True:
+        print("\n🔥 How challenging will this encounter be?")
+        print("1. 🟢 Easy - Just a taste of danger")
+        print("2. 🟡 Medium - A fair fight")
+        print("3. 🔴 Hard - A true test of their mettle")
+        print("4. ⚫ Deadly - A fight for survival")
+        difficulty = interactive_input("Choose a difficulty (1-4): ", config_file).strip()
+        if difficulty == "_RESTART_SECTION_":
+            continue  # Reprint the section header and options
+        if difficulty in ("1", "2", "3", "4"):
+            break
+        print("Please enter 1, 2, 3, or 4.")
     difficulty_to_key = {"1": "easy", "2": "medium", "3": "hard", "4": "deadly"}
     max_xp = thresholds.get(difficulty_to_key.get(difficulty, "easy"), thresholds["easy"])
 
     filtered_monsters = filter_monsters_by_xp(monsters, max_xp)
-    encounter = generate_encounter(filtered_monsters, max_xp)
+    # Pass config_file to generate_encounter for further section restarts
+    encounter = generate_encounter(filtered_monsters, max_xp, config_file)
 
     print("\nGenerated Encounter:")
     for i, monster in enumerate(encounter):
