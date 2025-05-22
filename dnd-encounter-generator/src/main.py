@@ -140,8 +140,8 @@ def get_party_info(config_file, edit_mode=False):
     print("\nEnter new party info:")
     while True:
         try:
-            party_level = int(input("🎲 The party's level (1-20): "))
             party_size = int(input("🧙 Number of adventurers: "))
+            party_level = int(input("🎲 The party's level (1-20): "))
             break
         except ValueError:
             print("⚠️ Invalid input. Please enter numbers.")
@@ -176,21 +176,21 @@ def interactive_input(prompt, config_file=None):
                 print("\nEdit Menu:")
                 print("1. Party info")
                 print("2. Monster source")
-                print("3. Save folder")
-                print("4. Edit all")
-                print("5. Continue")
-                choice = input("Choose an option (1-5): ").strip()
+                print("3. Save folder path")
+                print("a. Edit all above")
+                print("x. Exit menu")
+                choice = input("Choose an option (1, 2, 3, a, x): ").strip().lower()
                 if choice == "1":
                     get_party_info(config_file, edit_mode=True)
                 elif choice == "2":
                     get_monster_source(config_file, edit_mode=True)
                 elif choice == "3":
                     get_save_folder_path(edit_mode=True)
-                elif choice == "4":
+                elif choice == "a":
                     get_party_info(config_file, edit_mode=True)
                     get_monster_source(config_file, edit_mode=True)
                     get_save_folder_path(edit_mode=True)
-                elif choice == "5":
+                elif choice == "x":
                     break
                 else:
                     print("Invalid option. Please try again.")
@@ -465,21 +465,21 @@ def main():
                 print("\nEdit Menu:")
                 print("1. Party info")
                 print("2. Monster source")
-                print("3. Save folder")
-                print("4. Edit all")
-                print("5. Continue")
-                choice = input("Choose an option (1-5): ").strip()
+                print("3. Save folder path")
+                print("a. Edit all above")
+                print("x. Exit menu")
+                choice = input("Choose an option (1, 2, 3, a, x): ").strip().lower()
                 if choice == "1":
                     get_party_info(config_file, edit_mode=True)
                 elif choice == "2":
                     get_monster_source(config_file, edit_mode=True)
                 elif choice == "3":
                     get_save_folder_path(edit_mode=True)
-                elif choice == "4":
+                elif choice == "a":
                     get_party_info(config_file, edit_mode=True)
                     get_monster_source(config_file, edit_mode=True)
                     get_save_folder_path(edit_mode=True)
-                elif choice == "5":
+                elif choice == "x":
                     break
                 else:
                     print("Invalid option. Please try again.")
@@ -506,63 +506,10 @@ def main():
         print(f"    Level: {party_info.get('level', '?')}")
         print(f"📚 Monster source: {monster_source}")
         print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
-
-        while True:
-            use_saved = interactive_input("Do you want to use the info saved from the config file? (y/n): ", config_file).strip().lower()
-            if use_saved == "_RESTART_SECTION_":
-                # Reprint the section header and info
-                print("\n🎲 Loading your adventure setup from the config file...")
-                print ("🧙 Party:")
-                print(f"    Number of adventurers: {party_info.get('size', '?')}")
-                print(f"    Level: {party_info.get('level', '?')}")
-                print(f"📚 Monster source: {monster_source}")
-                print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
-                continue
-            if use_saved in ("y", "n"):
-                break
-            print("Please enter 'y' or 'n'.")
-        if use_saved != "y":
-            while True:
-                print("\nWhich info would you like to edit?")
-                print("1. Party info")
-                print("2. Monster source")
-                print("3. Save folder")
-                print("4. Edit all")
-                print("5. Continue with current info")
-                choice = interactive_input("Choose an option (1-5): ", config_file).strip()
-                if choice == "_RESTART_SECTION_":
-                    # Reprint the edit menu
-                    continue
-                if choice == "1":
-                    party_level, party_size = get_party_info(config_file, edit_mode=True)
-                    party_info = {"level": party_level, "size": party_size}
-                elif choice == "2":
-                    monster_source = get_monster_source(config_file, edit_mode=True)
-                elif choice == "3":
-                    folder_path = get_save_folder_path(edit_mode=True)
-                elif choice == "4":
-                    party_level, party_size = get_party_info(config_file, edit_mode=True)
-                    party_info = {"level": party_level, "size": party_size}
-                    monster_source = get_monster_source(config_file, edit_mode=True)
-                    folder_path = get_save_folder_path(edit_mode=True)
-                elif choice == "5":
-                    break
-                else:
-                    print("Invalid option. Please try again.")
-                    continue
-                more = interactive_input("Edit more info? (y/n): ", config_file).strip().lower()
-                if more == "_RESTART_SECTION_":
-                    continue
-                if more != "y":
-                    break
-            party_level = party_info.get("level")
-            party_size = party_info.get("size")
-            if 'folder_path' not in locals():
-                folder_path = folder_paths[-1]
-        else:
-            party_level = party_info.get("level")
-            party_size = party_info.get("size")
-            folder_path = folder_paths[-1]
+        # Remove the prompt and always use the saved info as default
+        party_level = party_info.get("level")
+        party_size = party_info.get("size")
+        folder_path = folder_paths[-1]
     else:
         # No saved info, prompt for everything
         party_level, party_size = get_party_info(config_file)
