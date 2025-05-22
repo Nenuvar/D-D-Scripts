@@ -129,11 +129,15 @@ def get_party_info(config_file, edit_mode=False):
     party_info = config.get("party_info", {})
     party_level = party_info.get("level")
     party_size = party_info.get("size")
+    party_name = party_info.get("name")
+    adventurers = party_info.get("adventurers")
 
-    if not edit_mode and party_level and party_size:
-        print("\nParty info:")
+    if not edit_mode and party_level and party_size and party_name and adventurers:
+        print(f"\nParty: {party_name}")
         print(f"  Number of adventurers: {party_size}")
         print(f"  Level: {party_level}")
+        for i, adv in enumerate(adventurers, 1):
+            print(f"    Adventurer {i}: {adv['race']} {adv['class']} | Interest: {adv['interest']} | Fear: {adv['fear']}")
         return party_level, party_size
 
     # In edit mode, always prompt for new info
@@ -146,7 +150,28 @@ def get_party_info(config_file, edit_mode=False):
         except ValueError:
             print("⚠️ Invalid input. Please enter numbers.")
 
-    config["party_info"] = {"level": party_level, "size": party_size}
+    adventurers = []
+    for i in range(1, party_size + 1):
+        print(f"\nAdventurer {i}:")
+        name = input("  Name: ").strip()
+        race = input("  Race: ").strip()
+        adv_class = input("  Class: ").strip()
+        interest = input("  Main interest: ").strip()
+        fear = input("  Biggest fear: ").strip()
+        adventurers.append({
+            "name": name,
+            "race": race,
+            "class": adv_class,
+            "interest": interest,
+            "fear": fear
+        })
+    party_name = input("\nParty name: ").strip()
+    config["party_info"] = {
+        "level": party_level,
+        "size": party_size,
+        "name": party_name,
+        "adventurers": adventurers
+    }
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
 
@@ -194,6 +219,23 @@ def interactive_input(prompt, config_file=None):
                     break
                 else:
                     print("Invalid option. Please try again.")
+            return "_RESTART_SECTION_"
+        elif user_input.strip() in ("--print-party", "-pp") and config_file:
+            try:
+                with open(config_file, "r") as f:
+                    config = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                config = {}
+            party_info = config.get("party_info", {})
+            if not party_info:
+                print("No party info saved.")
+            else:
+                print(f"\nParty: {party_info.get('name', '[Unnamed Party]')}")
+                print(f"  Number of adventurers: {party_info.get('size', '?')}")
+                print(f"  Level: {party_info.get('level', '?')}")
+                adventurers = party_info.get("adventurers", [])
+                for i, adv in enumerate(adventurers, 1):
+                    print(f"    Adventurer {i}: {adv.get('name', '[No Name]')} | {adv.get('race', '?')} {adv.get('class', '?')} | Interest: {adv.get('interest', '?')} | Fear: {adv.get('fear', '?')}")
             return "_RESTART_SECTION_"
         elif user_input.strip() == "--help":
             print_help()
@@ -484,6 +526,26 @@ def main():
                 else:
                     print("Invalid option. Please try again.")
             return
+        if user_input in ("--print-party", "-pp"):
+            # Print current party info and exit
+            try:
+                with open(config_file, "r") as f:
+                    config = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                config = {}
+            party_info = config.get("party_info", {})
+            if not party_info:
+                print("No party info saved.")
+            else:
+                print(f"\nParty: {party_info.get('name', '[Unnamed Party]')}")
+                print(f"  Number of adventurers: {party_info.get('size', '?')}")
+                print(f"  Level: {party_info.get('level', '?')}")
+                adventurers = party_info.get("adventurers", [])
+                for i, adv in enumerate(adventurers, 1):
+                    print(f"    Adventurer {i}: {adv.get('name', '[No Name]')} | {adv.get('race', '?')} {adv.get('class', '?')} | Interest: {adv.get('interest', '?')} | Fear: {adv.get('fear', '?')}")
+            print(f"\nPress [Enter] to continue...", end="")
+            input()  # Wait for user to press Enter
+            continue  # Reprint the prompt and context after printing party info
         break  # Exit the loop if no special command was entered
 
     # Try to load config info
@@ -501,9 +563,7 @@ def main():
 
     if has_saved_info:
         print("\n🎲 Loading your adventure setup from the config file...")
-        print ("🧙 Party:")
-        print(f"    Number of adventurers: {party_info.get('size', '?')}")
-        print(f"    Level: {party_info.get('level', '?')}")
+        print (f"🧙 Party: {party_info.get('name', '[Unnamed Party]')}")
         print(f"📚 Monster source: {monster_source}")
         print(f"💾 Save folder: {folder_paths[-1] if folder_paths else '?'}")
         # Remove the prompt and always use the saved info as default
