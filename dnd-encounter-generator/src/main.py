@@ -5,6 +5,7 @@ from datetime import datetime
 from encounter_generator import load_monsters  # Import the function to load monsters
 import json
 import sys
+import re
 
 # XP thresholds per character level (DMG pg. 82)
 XP_THRESHOLDS = {
@@ -13,7 +14,21 @@ XP_THRESHOLDS = {
     3: [75, 150, 225, 400],
     4: [125, 250, 375, 500],
     5: [250, 500, 750, 1100],
-    # Add more levels as needed
+    6: [300, 600, 900, 1400],
+    7: [350, 750, 1100, 1700],
+    8: [450, 900, 1400, 2100],
+    9: [550, 1100, 1600, 2400],
+    10: [600, 1200, 1900, 2800],
+    11: [800, 1600, 2400, 3600],
+    12: [1000, 2000, 3000, 4500],
+    13: [1100, 2200, 3400, 5100],
+    14: [1250, 2500, 3800, 5700],
+    15: [1400, 2800, 4300, 6400],
+    16: [1600, 3200, 4800, 7200],
+    17: [2000, 3900, 5900, 8800],
+    18: [2100, 4200, 6300, 9500],
+    19: [2400, 4900, 7300, 10900],
+    20: [2800, 5700, 8500, 12700]
 }
 
 # CR-to-XP mapping (DMG pg. 274)
@@ -278,7 +293,17 @@ def generate_encounter(monsters, max_xp, config_file=None):
         if environment_choice in environment_map or environment_choice == str(len(environment_map) + 1):
             break
         print("Invalid choice. Please try again.")
-    selected_environment = environment_map.get(environment_choice, "any")
+
+    # Handle 'Surprise me' option
+    if environment_choice == str(len(environment_map) + 1):
+        # Randomly pick an environment
+        if environment_map:
+            selected_environment = random.choice(list(environment_map.values()))
+            print(f"🎲 Surprise! The environment chosen is: {selected_environment.capitalize()}")
+        else:
+            selected_environment = "any"
+    else:
+        selected_environment = environment_map.get(environment_choice, "any")
 
     # Filter monsters based on the selected environment
     if selected_environment != "any":
@@ -390,12 +415,17 @@ def save_encounter_to_md(encounter, folder_path):
         # Write the table header
         file.write("| Monster | CR | HP | Dead | Note |\n")
         file.write("|---------|----|----|------|------|\n")
+        #THIS IS WRONG
         for monster in encounter:
             name = monster.get("name", "Unknown")
             cr = monster.get("cr", "Unknown")
             hp = monster.get("hp", {}).get("average", "Unknown")  # Extract the average HP if available
-            obsidian_link = f"[[{name.lower().replace(' ', '-')}\\|{name}]]"
-            file.write(f"| **{obsidian_link}** | {cr} | {hp} | [ ] |  |\n")
+            # Remove parentheses and their contents for the link part, but keep them in the display name
+            link_name = re.sub(r"[()]", "", name)  # Remove parentheses
+            link_name = re.sub(r"\s+", " ", link_name)  # Collapse multiple spaces
+            link_name = link_name.strip().lower().replace(" ", "-")
+            obsidian_link = f"[[{link_name}\\|{name}]]"
+            file.write(f"| {obsidian_link} | {cr} | {hp} | [ ] |  |\n")
         file.write("\n---\n")
 
     print(f"\nEncounter saved to: {file_path}")
