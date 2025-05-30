@@ -1,4 +1,5 @@
 # filepath: src/main.py
+# filepath: src/main.py
 import os
 import random
 from datetime import datetime
@@ -268,16 +269,17 @@ def interactive_input(prompt, config_file=None):
 
 def generate_encounter(monsters, max_xp, config_file=None):
     """
-    Generate an encounter by selecting a main monster that fits between 70%-80% of the max XP pool
+    Generate an encounter by selecting a main monster that fits between 50%-90% of the max XP pool
     and optionally adding minions with the remaining XP.
     :param monsters: List of filtered monsters.
     :param max_xp: Maximum XP for the encounter.
     :param config_file: Path to config file for interactive_input.
-    :return: List of monsters in the encounter.
+    :return: List of monsters in the encounter, environment description.
     """
-    # Shuffle the monsters list to ensure randomness
     random.shuffle(monsters)
     environment_description = ""
+    selected_environment = "any"
+
     # Step 1: Determine all possible environments from the monsters list
     while True:
         all_environments = set()
@@ -299,7 +301,6 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     # Handle 'Surprise me' option
     if environment_choice == str(len(environment_map) + 1):
-        # Randomly pick an environment
         if environment_map:
             selected_environment = random.choice(list(environment_map.values()))
             print(f"🎲 Surprise! The environment chosen is: {selected_environment.capitalize()}")
@@ -314,17 +315,20 @@ def generate_encounter(monsters, max_xp, config_file=None):
             monster for monster in monsters
             if selected_environment in monster.get("environment", [])
         ]
-     # --- AI Environment Description ---
-    if selected_environment != "any":
-        print("\n🌎 Generating a description for this environment...")
-        description = generate_environment_description(selected_environment)
-        print(f"\n📜 Environment Description:\n{description}\n")
-        environment_description = description
-    # --- End AI Environment Description ---
 
     if not monsters:
         print("😢 No monsters found for the chosen environment. The adventurers are safe... for now.")
-        return [], environment_description  # Return an empty encounter if no monsters match the environment
+        # Generate environment description if not 'any'
+        if selected_environment != "any":
+            print("\n🌎 Generating a description for this environment...")
+            env_desc_input = {
+                "name": selected_environment,
+                "main_monster": main_monster.get("name", "unknown creature"),
+                "minions": [m.get("name", "unknown minion") for m in minions] if 'minions' in locals() and minions else []
+            }
+            environment_description = generate_environment_description(env_desc_input)
+            print(f"\n📜 Environment Description:\n{environment_description}\n")
+        return [], environment_description
 
     # Step 2: Choose a main monster within 50%-90% of the max XP pool
     min_main_xp = int(max_xp * 0.5)
@@ -336,7 +340,16 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     if not main_candidates:
         print("🛑 No worthy main monster found within the XP range. The adventurers might get bored!")
-        return [], environment_description  # Return an empty encounter if no main monster is found
+        if selected_environment != "any":
+            print("\n🌎 Generating a description for this environment...")
+            env_desc_input = {
+                "name": selected_environment,
+                "main_monster": main_monster.get("name", "unknown creature"),
+                "minions": [m.get("name", "unknown minion") for m in minions] if 'minions' in locals() and minions else []
+            }
+            environment_description = generate_environment_description(env_desc_input)
+            print(f"\n📜 Environment Description:\n{environment_description}\n")
+        return [], environment_description
 
     # Select the first suitable main monster
     main_monster = main_candidates[0]
@@ -344,17 +357,24 @@ def generate_encounter(monsters, max_xp, config_file=None):
     main_monster_xp = CR_TO_XP.get(str(main_monster.get("cr", "0")), 0)
     remaining_xp = max_xp - main_monster_xp
 
-    # Step 3: Announce the main monster
     print(f"\n 🐲  Your main monster is: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
     if remaining_xp <= 0:
         print("⚔️ The main monster is so powerful that there's no room for minions!")
+        if selected_environment != "any":
+            print("\n🌎 Generating a description for this environment...")
+            env_desc_input = {
+                "name": selected_environment,
+                "main_monster": main_monster.get("name", "unknown creature"),
+                "minions": [m.get("name", "unknown minion") for m in minions] if 'minions' in locals() and minions else []
+            }
+            environment_description = generate_environment_description(env_desc_input)
+            print(f"\n📜 Environment Description:\n{environment_description}\n")
         return encounter, environment_description
 
     # Step 4: Ask if the user wants minions
     while True:
         add_minions = interactive_input("🐭  Would you like to add some minions? (y/n): ", config_file).strip().lower()
         if add_minions == "_RESTART_SECTION_":
-            # Reprint the main monster and minion prompt
             print(f"\n 🐲  Your main monster is: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
             continue
         if add_minions in ("y", "n"):
@@ -363,6 +383,15 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     if add_minions != 'y':
         print("🛡️ No minions? A bold choice!")
+        if selected_environment != "any":
+            print("\n🌎 Generating a description for this environment...")
+            env_desc_input = {
+                "name": selected_environment,
+                "main_monster": main_monster.get("name", "unknown creature"),
+                "minions": [m.get("name", "unknown minion") for m in minions] if 'minions' in locals() and minions else []
+            }
+            environment_description = generate_environment_description(env_desc_input)
+            print(f"\n📜 Environment Description:\n{environment_description}\n")
         return encounter, environment_description
 
     # Step 5: Add minions to fill the remaining XP
@@ -370,17 +399,15 @@ def generate_encounter(monsters, max_xp, config_file=None):
     minions = []
     for monster in monsters:
         if monster == main_monster:
-            continue  # Skip the main monster
+            continue
         cr = monster.get("cr", "0")
         if isinstance(cr, dict):
             cr = cr.get("cr", "0")
         xp = CR_TO_XP.get(str(cr), 0)
-
         if xp <= remaining_xp:
             minions.append(monster)
             remaining_xp -= xp
-
-        if len(minions) >= 3 or remaining_xp <= 0:  # Limit to 1-3 minions
+        if len(minions) >= 3 or remaining_xp <= 0:
             break
 
     if minions:
@@ -389,6 +416,19 @@ def generate_encounter(monsters, max_xp, config_file=None):
         print("🤷 No suitable minions could be found. The main monster stands alone!")
 
     encounter.extend(minions)
+
+    # --- AI Environment Description ---
+    if selected_environment != "any":
+        print("\n🌎 Generating a description for this environment...")
+        env_desc_input = {
+            "name": selected_environment,
+            "main_monster": main_monster.get("name", "unknown creature"),
+            "minions": [m.get("name", "unknown minion") for m in minions] if 'minions' in locals() and minions else []
+            }
+        environment_description = generate_environment_description(env_desc_input)
+        print(f"\n📜 Environment Description:\n{environment_description}\n")
+    # --- End AI Environment Description ---
+
     return encounter, environment_description
 
 def save_encounter_to_md(encounter, folder_path, environment_description=""):
@@ -420,7 +460,7 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
     file_path = os.path.join(folder_path, file_name)
 
      # Write the encounter to the Markdown file
-    with open(file_path, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write(f"# {encounter_title}\n\n")
         if environment_description:
             file.write(f"## Environment Description\n\n{environment_description}\n\n")
