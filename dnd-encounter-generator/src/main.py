@@ -1,4 +1,5 @@
 # filepath: src/main.py
+# filepath: src/main.py
 import os
 import random
 from datetime import datetime
@@ -6,6 +7,9 @@ from encounter_generator import load_monsters  # Import the function to load mon
 import json
 import sys
 import re
+from ai_client import generate_environment_description
+from dotenv import load_dotenv
+load_dotenv()
 
 # XP thresholds per character level (DMG pg. 82)
 XP_THRESHOLDS = {
@@ -274,7 +278,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
     """
     # Shuffle the monsters list to ensure randomness
     random.shuffle(monsters)
-
+    environment_description = ""
     # Step 1: Determine all possible environments from the monsters list
     while True:
         all_environments = set()
@@ -311,10 +315,17 @@ def generate_encounter(monsters, max_xp, config_file=None):
             monster for monster in monsters
             if selected_environment in monster.get("environment", [])
         ]
+     # --- AI Environment Description ---
+    if selected_environment != "any":
+        print("\n🌎 Generating a description for this environment...")
+        description = generate_environment_description(selected_environment)
+        print(f"\n📜 Environment Description:\n{description}\n")
+        environment_description = description
+    # --- End AI Environment Description ---
 
     if not monsters:
         print("😢 No monsters found for the chosen environment. The adventurers are safe... for now.")
-        return []  # Return an empty encounter if no monsters match the environment
+        return [], environment_description  # Return an empty encounter if no monsters match the environment
 
     # Step 2: Choose a main monster within 50%-90% of the max XP pool
     min_main_xp = int(max_xp * 0.5)
@@ -326,7 +337,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     if not main_candidates:
         print("🛑 No worthy main monster found within the XP range. The adventurers might get bored!")
-        return []  # Return an empty encounter if no main monster is found
+        return [], environment_description  # Return an empty encounter if no main monster is found
 
     # Select the first suitable main monster
     main_monster = main_candidates[0]
@@ -338,7 +349,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
     print(f"\n 🐲  Your main monster is: {main_monster.get('name', 'Unknown')} (CR: {main_monster.get('cr', 'Unknown')}, XP: {main_monster_xp})")
     if remaining_xp <= 0:
         print("⚔️ The main monster is so powerful that there's no room for minions!")
-        return encounter
+        return encounter, environment_description
 
     # Step 4: Ask if the user wants minions
     while True:
@@ -353,7 +364,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     if add_minions != 'y':
         print("🛡️ No minions? A bold choice!")
-        return encounter
+        return encounter, environment_description
 
     # Step 5: Add minions to fill the remaining XP
     print("\n🪄  Summoning minions to join the fray...")
@@ -379,9 +390,9 @@ def generate_encounter(monsters, max_xp, config_file=None):
         print("🤷 No suitable minions could be found. The main monster stands alone!")
 
     encounter.extend(minions)
-    return encounter
+    return encounter, environment_description
 
-def save_encounter_to_md(encounter, folder_path):
+def save_encounter_to_md(encounter, folder_path, environment_description=""):
     """
     Save the generated encounter to a Markdown file.
     :param encounter: List of monsters in the encounter.
@@ -409,20 +420,21 @@ def save_encounter_to_md(encounter, folder_path):
     file_name = f"{encounter_title.replace(' ', '_')}.md"
     file_path = os.path.join(folder_path, file_name)
 
-    # Write the encounter to the Markdown file
+     # Write the encounter to the Markdown file
     with open(file_path, "w") as file:
+        file.write(f"# {encounter_title}\n\n")
+        if environment_description:
+            file.write(f"## Environment Description\n\n{environment_description}\n\n")
         file.write("### Monsters:\n")
         # Write the table header
         file.write("| Monster | CR | HP | Dead | Note |\n")
         file.write("|---------|----|----|------|------|\n")
-        #THIS IS WRONG
         for monster in encounter:
             name = monster.get("name", "Unknown")
             cr = monster.get("cr", "Unknown")
-            hp = monster.get("hp", {}).get("average", "Unknown")  # Extract the average HP if available
-            # Remove parentheses and their contents for the link part, but keep them in the display name
-            link_name = re.sub(r"[()]", "", name)  # Remove parentheses
-            link_name = re.sub(r"\s+", " ", link_name)  # Collapse multiple spaces
+            hp = monster.get("hp", {}).get("average", "Unknown")
+            link_name = re.sub(r"[()]", "", name)
+            link_name = re.sub(r"\s+", " ", link_name)
             link_name = link_name.strip().lower().replace(" ", "-")
             obsidian_link = f"[[{link_name}\\|{name}]]"
             file.write(f"| {obsidian_link} | {cr} | {hp} | [ ] |  |\n")
@@ -630,7 +642,7 @@ def main():
 
     filtered_monsters = filter_monsters_by_xp(monsters, max_xp)
     # Pass config_file to generate_encounter for further section restarts
-    encounter = generate_encounter(filtered_monsters, max_xp, config_file)
+    encounter, environment_description = generate_encounter(filtered_monsters, max_xp, config_file)
 
     print("\nGenerated Encounter:")
     for i, monster in enumerate(encounter):
@@ -643,7 +655,8 @@ def main():
             print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
     
     print("\n💾 Saving the encounter...")
-    save_encounter_to_md(encounter, folder_path)
+    save_encounter_to_md(encounter, folder_path, environment_description)
+    print("\n🎉 Encounter saved successfully! Happy adventuring! ⚔️")
 
 if __name__ == "__main__":
     main()
