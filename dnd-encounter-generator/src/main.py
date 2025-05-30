@@ -1,4 +1,4 @@
-# filepath: src/main.py
+# This works with the v2_ai_client.py located at /archive/ai_client/
 # filepath: src/main.py
 import os
 import random
@@ -9,6 +9,7 @@ import sys
 import re
 from ai_client import generate_encounter_title
 from ai_client import generate_environment_description
+from ai_client import generate_battlemap_prompt
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -444,11 +445,15 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
     # Generate a random title for the encounter using the AI
     main_monster = encounter[0] if encounter else {"name": "Unknown"}
     main_monster_name = main_monster.get("name", "Unknown")
-    # If you have the environment name available, use it; otherwise, use "unknown environment"
+    environment = main_monster.get("environment", ["unknown environment"])[0] if main_monster.get("environment") else "unknown environment"
+
     encounter_title = generate_encounter_title(
         main_monster.get("environment", ["unknown environment"])[0] if main_monster.get("environment") else "unknown environment",
         main_monster_name
     )
+
+    # Generate the battlemap prompt using the AI
+    battlemap_prompt = generate_battlemap_prompt(environment)
 
     # Use the title as the filename, replacing spaces with underscores
     file_name = f"{encounter_title.replace(' ', '_')}.md"
@@ -456,9 +461,10 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
 
     # Write the encounter to the Markdown file
     with open(file_path, "w", encoding="utf-8") as file:
-        
+        if environment_description:
+            file.write(f"### Environment Description\n\n{environment_description}\n\n")
+        file.write(f"### Battlemap Prompt\n\n{battlemap_prompt}\n\n")
         file.write("### Monsters:\n")
-        # Write the table header
         file.write("| Monster | CR | HP | Dead | Note |\n")
         file.write("|---------|----|----|------|------|\n")
         for monster in encounter:
@@ -471,14 +477,13 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
             obsidian_link = f"[[{link_name}\\|{name}]]"
             file.write(f"| {obsidian_link} | {cr} | {hp} | [ ] |  |\n")
         file.write("\n---\n")
+        
         # Add the custom frames code block
         file.write("## Encounter Details\n\n")
         file.write("```custom-frames\n")
         file.write("frame: Image Creator\n")
         file.write("style: width: 1200px; height: 700px;\n")
         file.write("```\n\n")
-        if environment_description:
-            file.write(f"### Environment Description\n\n{environment_description}\n\n")
 
     print(f"\nEncounter saved to: {file_path}")
 
