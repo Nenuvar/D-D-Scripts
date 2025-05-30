@@ -18,10 +18,32 @@ def generate_environment_description(environment):
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
-    prompt = (
-        f"Write a short, vivid Dungeons & Dragons encounter environment description for a '{environment}' setting. "
-        "Keep it under 50 words. Do not mention monsters."
-    )
+    if isinstance(environment, dict):
+        env_name = environment.get("name", "unknown environment")
+        main_monster = environment.get("main_monster", "unknown creature")
+        minions = environment.get("minions", [])
+        if minions:
+            minion_names = ", ".join(minions)
+            prompt = (
+                f"Write a D&D environment description for a {env_name}. "
+                f"Include subtle details or traces of {main_monster}. "
+                f"Include some vague detail about one of these: {minion_names}. "
+                "Maximum 480 characters including spaces."
+            )
+        else:
+            prompt = (
+                f"Write a D&D environment description for a {env_name}. "
+                f"Include details or traces of the main monster: {main_monster}. "
+                "Maximum 480 characters including spaces."
+            )
+    else:
+        prompt = (
+            f"Write a D&D environment description for a {environment}. "
+            "Maximum 480 characters including spaces."
+        )
+
+    print(f"\n[AI Prompt]: {prompt}\n")
+
     data = {
         "model": "deepseek/deepseek-chat-v3-0324:free",
         "messages": [
