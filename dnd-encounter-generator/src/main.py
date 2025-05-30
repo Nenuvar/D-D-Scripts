@@ -1,5 +1,4 @@
 # filepath: src/main.py
-# filepath: src/main.py
 import os
 import random
 from datetime import datetime
