@@ -1,5 +1,5 @@
-# This works with the v2_ai_client.py located at /archive/ai_client/
 # filepath: src/main.py
+# This only works with the v3_ai_client.py file in /archive/ai_client/
 import os
 import random
 from datetime import datetime
@@ -7,9 +7,7 @@ from encounter_generator import load_monsters  # Import the function to load mon
 import json
 import sys
 import re
-from ai_client import generate_encounter_title
-from ai_client import generate_environment_description
-from ai_client import generate_battlemap_prompt
+from ai_client import generate_environment_description, generate_battlemap_prompt, generate_encounter_title
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -330,7 +328,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
             }
             environment_description = generate_environment_description(env_desc_input)
             print(f"\n📜 Environment Description:\n{environment_description}\n")
-        return [], environment_description
+        return [], environment_description, selected_environment
 
     # Step 2: Choose a main monster within 50%-90% of the max XP pool
     min_main_xp = int(max_xp * 0.5)
@@ -351,7 +349,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
             }
             environment_description = generate_environment_description(env_desc_input)
             print(f"\n📜 Environment Description:\n{environment_description}\n")
-        return [], environment_description
+        return [], environment_description, selected_environment
 
     # Select the first suitable main monster
     main_monster = main_candidates[0]
@@ -371,7 +369,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
             }
             environment_description = generate_environment_description(env_desc_input)
             print(f"\n📜 Environment Description:\n{environment_description}\n")
-        return encounter, environment_description
+        return encounter, environment_description, selected_environment
 
     # Step 4: Ask if the user wants minions
     while True:
@@ -394,7 +392,7 @@ def generate_encounter(monsters, max_xp, config_file=None):
             }
             environment_description = generate_environment_description(env_desc_input)
             print(f"\n📜 Environment Description:\n{environment_description}\n")
-        return encounter, environment_description
+        return encounter, environment_description, selected_environment
 
     # Step 5: Add minions to fill the remaining XP
     print("\n🪄  Summoning minions to join the fray...")
@@ -431,29 +429,16 @@ def generate_encounter(monsters, max_xp, config_file=None):
         print(f"\n📜 Environment Description:\n{environment_description}\n")
     # --- End AI Environment Description ---
 
-    return encounter, environment_description
+    return encounter, environment_description, selected_environment
 
-def save_encounter_to_md(encounter, folder_path, environment_description=""):
-    """
-    Save the generated encounter to a Markdown file.
-    :param encounter: List of monsters in the encounter.
-    :param folder_path: Path to the folder where the file should be saved.
-    """
+def save_encounter_to_md(encounter, folder_path, environment_description="", battlemap_prompt="", encounter_title=None):
+   
     # Ensure the folder exists
     os.makedirs(folder_path, exist_ok=True)
 
-    # Generate a random title for the encounter using the AI
-    main_monster = encounter[0] if encounter else {"name": "Unknown"}
-    main_monster_name = main_monster.get("name", "Unknown")
-    environment = main_monster.get("environment", ["unknown environment"])[0] if main_monster.get("environment") else "unknown environment"
-
-    encounter_title = generate_encounter_title(
-        main_monster.get("environment", ["unknown environment"])[0] if main_monster.get("environment") else "unknown environment",
-        main_monster_name
-    )
-
-    # Generate the battlemap prompt using the AI
-    battlemap_prompt = generate_battlemap_prompt(environment)
+     # Use only the AI-generated title
+    if not encounter_title:
+        encounter_title = "A Mysterious Encounter"
 
     # Use the title as the filename, replacing spaces with underscores
     file_name = f"{encounter_title.replace(' ', '_')}.md"
@@ -461,10 +446,15 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
 
     # Write the encounter to the Markdown file
     with open(file_path, "w", encoding="utf-8") as file:
+        file.write(f"# {encounter_title}\n\n")
         if environment_description:
-            file.write(f"### Environment Description\n\n{environment_description}\n\n")
-        file.write(f"### Battlemap Prompt\n\n{battlemap_prompt}\n\n")
+            file.write(f"## Environment Description\n\n")
+            file.write(f"{environment_description}\n\n")
+        if battlemap_prompt:
+            file.write(f"## Battlemap Prompt\n\n")
+            file.write(f"{battlemap_prompt}\n\n")
         file.write("### Monsters:\n")
+        # Write the table header
         file.write("| Monster | CR | HP | Dead | Note |\n")
         file.write("|---------|----|----|------|------|\n")
         for monster in encounter:
@@ -477,8 +467,8 @@ def save_encounter_to_md(encounter, folder_path, environment_description=""):
             obsidian_link = f"[[{link_name}\\|{name}]]"
             file.write(f"| {obsidian_link} | {cr} | {hp} | [ ] |  |\n")
         file.write("\n---\n")
-        
-        # Add the custom frames code block
+
+         # Add the custom frames code block
         file.write("## Encounter Details\n\n")
         file.write("```custom-frames\n")
         file.write("frame: Image Creator\n")
@@ -687,7 +677,7 @@ def main():
 
     filtered_monsters = filter_monsters_by_xp(monsters, max_xp)
     # Pass config_file to generate_encounter for further section restarts
-    encounter, environment_description = generate_encounter(filtered_monsters, max_xp, config_file)
+    encounter, environment_description, environment_name = generate_encounter(filtered_monsters, max_xp, config_file)
 
     print("\nGenerated Encounter:")
     for i, monster in enumerate(encounter):
@@ -698,11 +688,18 @@ def main():
             print(f"- 🐲 {name} (CR: {cr}, XP: {xp})")
         else:
             print(f"- 🐭 {name} (CR: {cr}, XP: {xp})")
-    
+    main_monster_name = encounter[0].get("name", "Unknown") if encounter else "Unknown"
+    encounter_title = generate_encounter_title(environment_name, main_monster_name)  # Note the argument order
+    # --- Generate and display battlemap prompt ---
+    if environment_name and environment_name != "any":
+        print("\n🗺️ Generating a battlemap prompt for this environment...")
+        battlemap_prompt = generate_battlemap_prompt(environment_name)
+        print(f"\n🗺️ Battlemap Prompt:\n{battlemap_prompt}\n")
+    else:
+        battlemap_prompt = ""
     print("\n💾 Saving the encounter...")
-    save_encounter_to_md(encounter, folder_path, environment_description)
+    save_encounter_to_md(encounter, folder_path, environment_description, battlemap_prompt, encounter_title)
     print("\n🎉 Encounter saved successfully! Happy adventuring! ⚔️")
-
+            
 if __name__ == "__main__":
     main()
-
