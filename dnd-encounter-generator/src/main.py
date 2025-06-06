@@ -424,7 +424,15 @@ def generate_encounter(monsters, max_xp, config_file=None):
 
     return encounter, environment_description, selected_environment
 
-def save_encounter_to_md(encounter, folder_path, environment_description="", battlemap_prompt="", encounter_title=None):
+def save_encounter_to_md(
+    encounter, 
+    folder_path, 
+    environment_description="", 
+    battlemap_prompt="", 
+    encounter_title=None,
+    environment_name=None,
+    difficulty=None
+):
    
     # Ensure the folder exists
     os.makedirs(folder_path, exist_ok=True)
@@ -456,9 +464,16 @@ def save_encounter_to_md(encounter, folder_path, environment_description="", bat
 
     # Write the encounter to the Markdown file
     with open(file_path, "w", encoding="utf-8") as file:
-        # Initiative Tracker block at the top
+
+        # --- YAML front matter ---
+        file.write("---\n")
+        file.write(f"location: {environment_name if environment_name else 'unknown'}\n")
+        file.write(f"difficulty: {difficulty if difficulty else 'unknown'}\n")
+        file.write("---\n\n")
+
+        # Initiative Tracker block 
         file.write(initiative_block)
-        
+
         if environment_description:
             file.write(f"## Environment Description\n\n")
             file.write(f"{environment_description}\n\n")
@@ -713,7 +728,15 @@ def main():
     else:
         battlemap_prompt = ""
     print("\n💾 Saving the encounter...")
-    save_encounter_to_md(encounter, folder_path, environment_description, battlemap_prompt, encounter_title)
+    save_encounter_to_md(
+        encounter, 
+        folder_path, 
+        environment_description, 
+        battlemap_prompt, 
+        encounter_title,
+        environment_name,
+        difficulty_to_key.get(difficulty, "easy")
+    )
     print("\n🎉 Encounter saved successfully! Happy adventuring! ⚔️")
             
 if __name__ == "__main__":
