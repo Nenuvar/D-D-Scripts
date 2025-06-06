@@ -268,14 +268,7 @@ def interactive_input(prompt, config_file=None):
             return user_input
 
 def generate_encounter(monsters, max_xp, config_file=None):
-    """
-    Generate an encounter by selecting a main monster that fits between 50%-90% of the max XP pool
-    and optionally adding minions with the remaining XP.
-    :param monsters: List of filtered monsters.
-    :param max_xp: Maximum XP for the encounter.
-    :param config_file: Path to config file for interactive_input.
-    :return: List of monsters in the encounter, environment description.
-    """
+    
     random.shuffle(monsters)
     environment_description = ""
     selected_environment = "any"
@@ -446,13 +439,10 @@ def save_encounter_to_md(encounter, folder_path, environment_description="", bat
 
     # Write the encounter to the Markdown file
     with open(file_path, "w", encoding="utf-8") as file:
-        file.write(f"# {encounter_title}\n\n")
         if environment_description:
             file.write(f"## Environment Description\n\n")
             file.write(f"{environment_description}\n\n")
-        if battlemap_prompt:
-            file.write(f"## Battlemap Prompt\n\n")
-            file.write(f"{battlemap_prompt}\n\n")
+        
         file.write("### Monsters:\n")
         # Write the table header
         file.write("| Monster | CR | HP | Dead | Note |\n")
@@ -468,8 +458,13 @@ def save_encounter_to_md(encounter, folder_path, environment_description="", bat
             file.write(f"| {obsidian_link} | {cr} | {hp} | [ ] |  |\n")
         file.write("\n---\n")
 
-         # Add the custom frames code block
         file.write("## Encounter Details\n\n")
+        if battlemap_prompt:
+            file.write("```copy\n")
+            file.write(f"{battlemap_prompt}\n")
+            file.write("```\n\n")
+
+         # Add the custom frames code block
         file.write("```custom-frames\n")
         file.write("frame: Image Creator\n")
         file.write("style: width: 1200px; height: 700px;\n")
