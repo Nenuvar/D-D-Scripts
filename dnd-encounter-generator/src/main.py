@@ -437,8 +437,28 @@ def save_encounter_to_md(encounter, folder_path, environment_description="", bat
     file_name = f"{encounter_title.replace(' ', '_')}.md"
     file_path = os.path.join(folder_path, file_name)
 
+    # Prepare Initiative Tracker block
+    creatures_yaml = ""
+    for monster in encounter:
+        name = monster.get("name", "Unknown")
+        creatures_yaml += f" - 1: {name}\n"
+
+    initiative_block = (
+        "```encounter\n"
+        f"name: {encounter_title.replace(' ', '_')}\n"
+        "rollHP: false\n"
+        "party:\n"
+        "players: true\n"
+        "creatures:\n"
+        f"{creatures_yaml}"
+        "```\n\n"
+    )
+
     # Write the encounter to the Markdown file
     with open(file_path, "w", encoding="utf-8") as file:
+        # Initiative Tracker block at the top
+        file.write(initiative_block)
+        
         if environment_description:
             file.write(f"## Environment Description\n\n")
             file.write(f"{environment_description}\n\n")
