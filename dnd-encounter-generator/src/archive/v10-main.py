@@ -1,5 +1,5 @@
 # filepath: src/main.py
-# This only works with the v3_ai_client.py file in /archive/ai_client/
+# This only works with the v4_ai_client.py file in /archive/ai_client/
 import os
 import random
 from datetime import datetime
